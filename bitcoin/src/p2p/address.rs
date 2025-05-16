@@ -163,8 +163,6 @@ impl fmt::Display for AddrV2ConversionError {
     }
 }
 
-impl std::error::Error for AddrV2ConversionError {}
-
 
 impl From<SocketAddr> for AddrV2 {
     fn from(addr: SocketAddr) -> Self {
