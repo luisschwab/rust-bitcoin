@@ -93,3 +93,77 @@ impl Decodable for PackedPositions {
         })
     }
 }
+
+/// The [`ReconstructableScript`] type allows nodes to rebuild
+/// the locking script without relaying redundant information.
+///
+/// Since the [`ScriptHash`], [`PubkeyHash`], [`WScriptHash`]
+/// and [`WPubkeyHash`] script types hide their scripts behind
+/// a hash, it's useless to relay that hash, as the actual script
+/// can be recovered from the `scriptSig` or `witness` fields in
+/// the moment the [`TxOut`] is spent.
+///
+/// For [`TapScript`] and non-standard scripts where the script
+/// cannot be reconstructed from transaction data, the actual
+/// script has to be sent.
+#[derive(PartialEq, Eq, Clone, PartialOrd, Ord, Hash, Debug)]
+pub enum ReconstructableScript {
+    /// Other: P2TR and non-standard outputs (0x00).
+    Other(Box<[u8]>),
+    /// P2PKH (0x01).
+    PubkeyHash,
+    /// P2WPKH (0x02).
+    WitnessV0PubkeyHash,
+    /// P2SH (0x03).
+    ScriptHash,
+    /// P2WSH (0x04).
+    WitnessV0ScriptHash,
+}
+
+impl Encodable for ReconstructableScript {
+    #[inline]
+    fn consensus_encode<W: Write + ?Sized>(&self, w: &mut W) -> Result<usize, io::Error> {
+        let mut len = 0;
+        match self {
+            ReconstructableScript::Other(script) => {
+                len += 0x00.consensus_encode(w)?;
+                len += script.consensus_encode(w)?;
+            }
+            ReconstructableScript::PubkeyHash => {
+                len += 0x01.consensus_encode(w)?;
+            }
+            ReconstructableScript::WitnessV0PubkeyHash => {
+                len += 0x02.consensus_encode(w)?;
+            }
+            ReconstructableScript::ScriptHash => {
+                len += 0x03.consensus_encode(w)?;
+            }
+            ReconstructableScript::WitnessV0ScriptHash => {
+                len += 0x04.consensus_encode(w)?;
+            }
+        }
+
+        Ok(len)
+    }
+}
+
+impl Decodable for ReconstructableScript {
+    #[inline]
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, encode::Error> {
+        let tag = u8::consensus_decode(r)?;
+
+        match tag {
+            0x00 => {
+                let script_bytes = Vec::<u8>::consensus_decode(r)?;
+                Ok(ReconstructableScript::Other(script_bytes.into_boxed_slice()))
+            }
+            0x01 => Ok(ReconstructableScript::PubkeyHash),
+            0x02 => Ok(ReconstructableScript::WitnessV0PubkeyHash),
+            0x03 => Ok(ReconstructableScript::ScriptHash),
+            0x04 => Ok(ReconstructableScript::WitnessV0ScriptHash),
+            _ => Err(crate::consensus::parse_failed_error(
+                "Invalid ReconstructableScript tag: {tag}",
+            )),
+        }
+    }
+}
