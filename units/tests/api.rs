@@ -271,7 +271,9 @@ fn api_can_use_all_types_from_module_parse() {
 fn api_can_use_all_types_from_module_pow() {
     use bitcoin_units::pow::CompactTarget;
     #[cfg(feature = "encoding")]
-    use bitcoin_units::pow::{CompactTargetDecoder, CompactTargetDecoderError, CompactTargetEncoder};
+    use bitcoin_units::pow::{
+        CompactTargetDecoder, CompactTargetDecoderError, CompactTargetEncoder,
+    };
 }
 
 #[test]
